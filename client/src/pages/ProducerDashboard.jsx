@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import Header from '../components/ui/Header'
 import Footer from '../components/ui/Footer'
 import ProducerHomeFeed from '../components/producer/ProducerHomeFeed'
-import CreatePostInterface from '../components/producer/CreatePostInterface'
 import ContentManagement from '../components/producer/ContentManagement'
 import ProductsSection from '../components/producer/ProductsSection'
 import ConnectionsHub from '../components/producer/ConnectionsHub'
@@ -90,8 +89,7 @@ const ProducerDashboard = () => {
 
   const tabs = [
     { id: 'home', label: 'Home Feed', icon: 'home' },
-    { id: 'create', label: 'Create Post', icon: 'plus' },
-    { id: 'content', label: 'Content', icon: 'folder' },
+    { id: 'content', label: 'Posts', icon: 'folder' },
     { id: 'products', label: 'Products', icon: 'package' },
     { id: 'connections', label: 'Connections', icon: 'users' },
     { id: 'analytics', label: 'Analytics', icon: 'chart' },
@@ -143,8 +141,6 @@ const ProducerDashboard = () => {
     switch (activeTab) {
       case 'home':
         return <ProducerHomeFeed />
-      case 'create':
-        return <CreatePostInterface />
       case 'content':
         return <ContentManagement />
       case 'products':

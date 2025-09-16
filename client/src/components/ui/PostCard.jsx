@@ -13,6 +13,7 @@ const PostCard = ({
   showCategory = true,
   showPopularity = false,
   showContactButton = true,
+  showProducerHeader = true, // New prop to control producer header visibility
   size = 'default' // 'default', 'compact', 'detailed'
 }) => {
   const [imageError, setImageError] = useState(false);
@@ -82,62 +83,82 @@ const PostCard = ({
     <div className={`bg-white border border-primary-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 ${
       size === 'compact' ? 'text-sm' : ''
     }`}>
-      {/* Post Header */}
-      <div className={`p-4 border-b border-primary-100 ${size === 'compact' ? 'p-3' : ''}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className={`bg-primary-100 rounded-full flex items-center justify-center ${
-              size === 'compact' ? 'w-10 h-10 text-base' : 'w-12 h-12 text-lg'
-            }`}>
-              {post.producer.avatar}
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h3 className={`font-semibold text-primary-800 hover:text-orange-600 cursor-pointer ${
-                  size === 'compact' ? 'text-sm' : ''
+      {/* Post Header - Conditionally rendered */}
+      {showProducerHeader ? (
+        <div className={`p-4 border-b border-primary-100 ${size === 'compact' ? 'p-3' : ''}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className={`bg-primary-100 rounded-full flex items-center justify-center ${
+                size === 'compact' ? 'w-10 h-10 text-base' : 'w-12 h-12 text-lg'
+              }`}>
+                {post.producer.avatar}
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className={`font-semibold text-primary-800 hover:text-orange-600 cursor-pointer ${
+                    size === 'compact' ? 'text-sm' : ''
+                  }`}>
+                    {post.producer.name}
+                  </h3>
+                  {post.producer.verified && (
+                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <div className={`flex items-center space-x-2 text-primary-500 ${
+                  size === 'compact' ? 'text-xs' : 'text-sm'
                 }`}>
-                  {post.producer.name}
-                </h3>
-                {post.producer.verified && (
-                  <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </div>
-              <div className={`flex items-center space-x-2 text-primary-500 ${
-                size === 'compact' ? 'text-xs' : 'text-sm'
-              }`}>
-                <span>📍 {post.producer.location}</span>
-                <span>•</span>
-                <span>{post.timeAgo || post.timestamp}</span>
+                  <span>📍 {post.producer.location}</span>
+                  <span>•</span>
+                  <span>{post.timeAgo || post.timestamp}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            {showTrendingBadge && post.trending && (
-              <span className={`bg-orange-100 text-orange-800 font-semibold px-2 py-1 rounded-full ${
-                size === 'compact' ? 'text-xs' : 'text-xs'
-              }`}>
-                🔥 Trending
-              </span>
-            )}
-            {onSave && (
-              <button 
-                onClick={handleSave}
-                className={`p-2 rounded-full transition-colors ${
-                  isSaved 
-                    ? 'text-yellow-600 bg-yellow-100' 
-                    : 'text-primary-400 hover:text-yellow-600 hover:bg-yellow-100'
-                }`}
-              >
-                <svg className="w-5 h-5" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                </svg>
-              </button>
-            )}
+            <div className="flex items-center space-x-2">
+              {showTrendingBadge && post.trending && (
+                <span className={`bg-orange-100 text-orange-800 font-semibold px-2 py-1 rounded-full ${
+                  size === 'compact' ? 'text-xs' : 'text-xs'
+                }`}>
+                  🔥 Trending
+                </span>
+              )}
+              {onSave && (
+                <button 
+                  onClick={handleSave}
+                  className={`p-2 rounded-full transition-colors ${
+                    isSaved 
+                      ? 'text-yellow-600 bg-yellow-100' 
+                      : 'text-primary-400 hover:text-yellow-600 hover:bg-yellow-100'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill={isSaved ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* Simplified header with just date when producer header is hidden */
+        <div className={`px-4 pt-4 ${size === 'compact' ? 'px-3 pt-3' : ''}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className={`text-primary-500 ${size === 'compact' ? 'text-xs' : 'text-sm'}`}>
+              <span>{post.timeAgo || post.timestamp}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {showTrendingBadge && post.trending && (
+                <span className={`bg-orange-100 text-orange-800 font-semibold px-2 py-1 rounded-full ${
+                  size === 'compact' ? 'text-xs' : 'text-xs'
+                }`}>
+                  🔥 Trending
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Post Content */}
       <div className={`p-4 ${size === 'compact' ? 'p-3' : ''}`}>

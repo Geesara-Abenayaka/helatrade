@@ -5,12 +5,12 @@ import { useCategories } from '../../hooks/useCategories'
 
 const EditProfile = ({ onClose, onSave }) => {
   const [profileData, setProfileData] = useState({
-    name: 'John Doe',
+    ownerName: 'John Doe',
     businessName: 'Highland Tea Estate',
     email: 'john.doe@example.com',
     phone: '+94 77 123 4567',
     location: 'Kandy, Sri Lanka',
-    selectedCategories: ['tea', 'herbs'], // Changed from single 'category' to array 'selectedCategories'
+    producerCategories: [1, 6], // Array of category numeric IDs (vegetables=1, coconut=6)
     description: 'Premium Ceylon tea producer with over 20 years of experience in organic tea cultivation. We specialize in high-quality tea leaves from the hill country.',
     website: 'https://highlandtea.lk',
     establishedYear: '2003',
@@ -53,22 +53,23 @@ const EditProfile = ({ onClose, onSave }) => {
     if (categoriesLoading || !apiCategories.length) {
       // Fallback categories while loading or if API fails
       return [
-        { id: 'vegetables', name: 'Vegetables', icon: '🥬' },
-        { id: 'fruits', name: 'Fruits', icon: '🍎' },
-        { id: 'grains', name: 'Grains & Rice', icon: '🌾' },
-        { id: 'spices', name: 'Spices', icon: '🌶️' },
-        { id: 'tea', name: 'Tea', icon: '🍃' },
-        { id: 'coconut', name: 'Coconut Products', icon: '🥥' },
-        { id: 'dairy', name: 'Dairy', icon: '🐄' },
-        { id: 'seafood', name: 'Seafood', icon: '🐟' },
-        { id: 'herbs', name: 'Herbs', icon: '🌿' },
-        { id: 'flowers', name: 'Flowers', icon: '🌺' }
+        { id: 'vegetables', numericId: 1, name: 'Vegetables', icon: '🥬' },
+        { id: 'fruits', numericId: 2, name: 'Fruits', icon: '🍎' },
+        { id: 'grains', numericId: 3, name: 'Grains & Rice', icon: '🌾' },
+        { id: 'spices', numericId: 4, name: 'Spices', icon: '🌶️' },
+        { id: 'tea', numericId: 5, name: 'Tea', icon: '🍃' },
+        { id: 'coconut', numericId: 6, name: 'Coconut Products', icon: '🥥' },
+        { id: 'dairy', numericId: 7, name: 'Dairy', icon: '🐄' },
+        { id: 'seafood', numericId: 8, name: 'Seafood', icon: '🐟' },
+        { id: 'herbs', numericId: 9, name: 'Herbs', icon: '🌿' },
+        { id: 'flowers', numericId: 10, name: 'Flowers', icon: '🌺' }
       ]
     }
     
     // Transform API categories to match expected format
     return apiCategories.map(cat => ({
       id: cat.slug,
+      numericId: cat.id, // Assuming API provides numeric ID
       name: cat.name,
       icon: cat.icon
     }))
@@ -97,11 +98,14 @@ const EditProfile = ({ onClose, onSave }) => {
   }
 
   const toggleCategory = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId)
+    if (!category) return
+
     setProfileData(prev => ({
       ...prev,
-      selectedCategories: prev.selectedCategories.includes(categoryId)
-        ? prev.selectedCategories.filter(id => id !== categoryId)
-        : [...prev.selectedCategories, categoryId]
+      producerCategories: prev.producerCategories.includes(category.numericId)
+        ? prev.producerCategories.filter(id => id !== category.numericId)
+        : [...prev.producerCategories, category.numericId]
     }))
   }
 
@@ -252,14 +256,14 @@ const EditProfile = ({ onClose, onSave }) => {
             </div>
             
             <div className="flex-1">
-              <h3 className="text-2xl font-bold text-white mb-2">{profileData.name}</h3>
+              <h3 className="text-2xl font-bold text-white mb-2">{profileData.ownerName}</h3>
               <p className="text-white text-opacity-90">{profileData.businessName}</p>
               <div className="flex items-center space-x-4 mt-2 text-white text-opacity-75 text-sm">
                 <span>{profileData.location}</span>
                 <span>•</span>
-                <span>{profileData.selectedCategories.length > 0 ? 
-                  profileData.selectedCategories.map(catId => 
-                    categories.find(cat => cat.id === catId)?.name || catId
+                <span>{profileData.producerCategories.length > 0 ? 
+                  profileData.producerCategories.map(catId => 
+                    categories.find(cat => cat.numericId === catId)?.name || catId
                   ).join(', ') : 'No categories selected'}</span>
                 <span>•</span>
                 <span>Est. {profileData.establishedYear}</span>
@@ -297,11 +301,11 @@ const EditProfile = ({ onClose, onSave }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-primary-700 mb-2">Full Name</label>
+                <label className="block text-sm font-medium text-primary-700 mb-2">Owner Name</label>
                 <input
                   type="text"
-                  value={profileData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  value={profileData.ownerName}
+                  onChange={(e) => handleInputChange('ownerName', e.target.value)}
                   className="w-full border border-primary-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
@@ -341,7 +345,7 @@ const EditProfile = ({ onClose, onSave }) => {
                     type="button"
                     onClick={() => toggleCategory(category.id)}
                     className={`p-4 rounded-lg border text-center transition-all duration-200 ${
-                      profileData.selectedCategories.includes(category.id)
+                      profileData.producerCategories.includes(category.numericId)
                         ? 'bg-orange-100 border-orange-300 text-orange-700'
                         : 'bg-white border-primary-200 text-primary-600 hover:border-primary-300 hover:bg-primary-50'
                     }`}
