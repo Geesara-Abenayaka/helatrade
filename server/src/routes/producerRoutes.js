@@ -5,7 +5,9 @@ const {
   validateProfileUpdate,
   validateBusinessHoursUpdate,
   validateCertificationsUpdate,
-  validateLanguagesUpdate 
+  validateLanguagesUpdate,
+  validateSocialMediaUpdate,
+  validateSpecialtiesUpdate
 } = require('../middleware/validation');
 const { 
   authenticateToken, 
@@ -34,7 +36,9 @@ router.post('/register', validateProducerRegistration, async (req, res) => {
       category_ids,
       business_hours,
       certifications,
-      languages
+      languages,
+      social_media,
+      specialties
     } = req.body;
 
     // Create new producer
@@ -53,7 +57,9 @@ router.post('/register', validateProducerRegistration, async (req, res) => {
       category_ids,
       business_hours,
       certifications,
-      languages
+      languages,
+      social_media,
+      specialties
     });
 
     // Generate JWT token
@@ -82,7 +88,9 @@ router.post('/register', validateProducerRegistration, async (req, res) => {
           categories: producer.categories || [],
           business_hours: producer.business_hours || [],
           certifications: producer.certifications || [],
-          languages: producer.languages || []
+          languages: producer.languages || [],
+          social_media: producer.social_media || [],
+          specialties: producer.specialties || []
         },
         token
       }
@@ -212,7 +220,10 @@ router.get('/profile/:id', optionalAuth, async (req, res) => {
       created_at: producer.producer_created_at,
       categories: producer.categories || [],
       business_hours: producer.business_hours || [],
-      certifications: producer.certifications || []
+      certifications: producer.certifications || [],
+      languages: producer.languages || [],
+      social_media: producer.social_media || [],
+      specialties: producer.specialties || []
     };
 
     res.json({
@@ -924,6 +935,320 @@ router.post('/profile/languages', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to add language',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Get producer social media
+router.get('/profile/social-media', authenticateToken, async (req, res) => {
+  try {
+    console.log('Debug - GET social media - User ID from token:', req.user.id);
+    console.log('Debug - GET social media - User type from token:', req.user.user_type);
+
+    // Find producer by user ID (from JWT token)
+    const producer = await Producer.findByUserId(req.user.id);
+    
+    if (!producer) {
+      console.log('Debug - GET social media - Producer not found for user ID:', req.user.id);
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile not found'
+      });
+    }
+
+    console.log('Debug - GET social media - Producer found:', !!producer);
+    if (producer) {
+      console.log('Debug - GET social media - Producer ID in object:', producer.producer_id);
+    }
+
+    // Ensure we have the producer_id for the query
+    if (!producer.producer_id) {
+      console.log('Debug - GET social media - No producer_id found');
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile incomplete'
+      });
+    }
+
+    const socialMedia = await producer.getSocialMedia();
+    console.log('Debug - GET social media - Final social media result:', socialMedia);
+
+    res.json({
+      success: true,
+      message: 'Social media retrieved successfully',
+      data: socialMedia
+    });
+  } catch (error) {
+    console.error('Get producer social media error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve social media',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Update producer social media (replace all)
+router.put('/profile/social-media', authenticateToken, validateSocialMediaUpdate, async (req, res) => {
+  try {
+    console.log('Debug - PUT social media - User ID from token:', req.user.id);
+    console.log('Debug - PUT social media - Request body:', req.body);
+
+    // Find producer by user ID (from JWT token)
+    const producer = await Producer.findByUserId(req.user.id);
+    
+    if (!producer) {
+      console.log('Debug - PUT social media - Producer not found for user ID:', req.user.id);
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile not found'
+      });
+    }
+
+    console.log('Debug - PUT social media - Producer found:', !!producer);
+    if (producer) {
+      console.log('Debug - PUT social media - Producer ID in object:', producer.producer_id);
+    }
+
+    // Update social media
+    await producer.updateSocialMedia(req.body.social_media);
+
+    // Get updated social media
+    const updatedSocialMedia = await producer.getSocialMedia();
+
+    res.json({
+      success: true,
+      message: 'Social media updated successfully',
+      data: updatedSocialMedia
+    });
+  } catch (error) {
+    console.error('Update producer social media error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update social media',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Add single social media profile
+router.post('/profile/social-media', authenticateToken, async (req, res) => {
+  try {
+    const { platform, url } = req.body;
+
+    // Validate required fields
+    if (!platform || !url) {
+      return res.status(400).json({
+        success: false,
+        message: 'Platform and URL are required'
+      });
+    }
+
+    // Validate platform
+    const validPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok'];
+    if (!validPlatforms.includes(platform)) {
+      return res.status(400).json({
+        success: false,
+        message: `Platform must be one of: ${validPlatforms.join(', ')}`
+      });
+    }
+
+    // Validate URL
+    try {
+      new URL(url);
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid URL format'
+      });
+    }
+
+    const producer = await Producer.findByUserId(req.user.id);
+    
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile not found'
+      });
+    }
+
+    const result = await producer.addSocialMedia({ platform, url });
+
+    res.status(201).json({
+      success: true,
+      message: 'Social media profile added successfully',
+      data: { 
+        id: result.insertId,
+        platform,
+        url
+      }
+    });
+  } catch (error) {
+    console.error('Add producer social media error:', error);
+    
+    // Handle duplicate key constraint
+    if (error.message && error.message.includes('Duplicate entry')) {
+      return res.status(409).json({
+        success: false,
+        message: 'Social media profile for this platform already exists'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add social media profile',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Get producer specialties
+router.get('/profile/specialties', authenticateToken, async (req, res) => {
+  try {
+    console.log('Debug - GET specialties - User ID from token:', req.user.id);
+    console.log('Debug - GET specialties - User type from token:', req.user.user_type);
+
+    // Find producer by user ID (from JWT token)
+    const producer = await Producer.findByUserId(req.user.id);
+    
+    if (!producer) {
+      console.log('Debug - GET specialties - Producer not found for user ID:', req.user.id);
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile not found'
+      });
+    }
+
+    console.log('Debug - GET specialties - Producer found:', !!producer);
+    if (producer) {
+      console.log('Debug - GET specialties - Producer ID in object:', producer.producer_id);
+    }
+
+    // Ensure we have the producer_id for the query
+    if (!producer.producer_id) {
+      console.log('Debug - GET specialties - No producer_id found');
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile incomplete'
+      });
+    }
+
+    const specialties = await producer.getSpecialties();
+    console.log('Debug - GET specialties - Final specialties result:', specialties);
+
+    res.json({
+      success: true,
+      message: 'Specialties retrieved successfully',
+      data: specialties
+    });
+  } catch (error) {
+    console.error('Get producer specialties error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve specialties',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Update producer specialties (replace all)
+router.put('/profile/specialties', authenticateToken, validateSpecialtiesUpdate, async (req, res) => {
+  try {
+    console.log('Debug - PUT specialties - User ID from token:', req.user.id);
+    console.log('Debug - PUT specialties - Request body:', req.body);
+
+    // Find producer by user ID (from JWT token)
+    const producer = await Producer.findByUserId(req.user.id);
+    
+    if (!producer) {
+      console.log('Debug - PUT specialties - Producer not found for user ID:', req.user.id);
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile not found'
+      });
+    }
+
+    console.log('Debug - PUT specialties - Producer found:', !!producer);
+    if (producer) {
+      console.log('Debug - PUT specialties - Producer ID in object:', producer.producer_id);
+    }
+
+    // Update specialties
+    await producer.updateSpecialties(req.body.specialties);
+
+    // Get updated specialties
+    const updatedSpecialties = await producer.getSpecialties();
+
+    res.json({
+      success: true,
+      message: 'Specialties updated successfully',
+      data: updatedSpecialties
+    });
+  } catch (error) {
+    console.error('Update producer specialties error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update specialties',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Add single specialty
+router.post('/profile/specialties', authenticateToken, async (req, res) => {
+  try {
+    const { specialty } = req.body;
+
+    // Validate required field
+    if (!specialty) {
+      return res.status(400).json({
+        success: false,
+        message: 'Specialty is required'
+      });
+    }
+
+    // Validate specialty text
+    const specialtyText = typeof specialty === 'string' ? specialty.trim() : specialty.specialty?.trim();
+    if (!specialtyText || specialtyText.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Specialty cannot be empty'
+      });
+    }
+
+    if (specialtyText.length > 255) {
+      return res.status(400).json({
+        success: false,
+        message: 'Specialty must not exceed 255 characters'
+      });
+    }
+
+    const producer = await Producer.findByUserId(req.user.id);
+    
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Producer profile not found'
+      });
+    }
+
+    const result = await producer.addSpecialty(specialty);
+
+    res.status(201).json({
+      success: true,
+      message: 'Specialty added successfully',
+      data: { 
+        id: result.insertId,
+        specialty: specialtyText
+      }
+    });
+  } catch (error) {
+    console.error('Add producer specialty error:', error);
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add specialty',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }

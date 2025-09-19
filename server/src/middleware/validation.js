@@ -180,6 +180,45 @@ const validateProducerRegistration = [
     .if(body('languages').exists())
     .isIn(['basic', 'intermediate', 'advanced', 'native'])
     .withMessage('Proficiency must be one of: basic, intermediate, advanced, native'),
+
+  // Social media validation
+  body('social_media')
+    .optional()
+    .isArray()
+    .withMessage('Social media must be an array'),
+
+  body('social_media.*.platform')
+    .if(body('social_media').exists())
+    .isIn(['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok'])
+    .withMessage('Platform must be one of: facebook, instagram, twitter, linkedin, youtube, tiktok'),
+
+  body('social_media.*.url')
+    .if(body('social_media').exists())
+    .isURL()
+    .isLength({ max: 255 })
+    .withMessage('URL must be a valid URL and not exceed 255 characters'),
+
+  // Specialties validation
+  body('specialties')
+    .optional()
+    .isArray()
+    .withMessage('Specialties must be an array'),
+
+  body('specialties.*')
+    .if(body('specialties').exists())
+    .custom((value) => {
+      // Allow either string or object with specialty property
+      if (typeof value === 'string') {
+        return value.trim().length > 0 && value.length <= 255;
+      }
+      if (typeof value === 'object' && value.specialty) {
+        return typeof value.specialty === 'string' && 
+               value.specialty.trim().length > 0 && 
+               value.specialty.length <= 255;
+      }
+      return false;
+    })
+    .withMessage('Each specialty must be a non-empty string not exceeding 255 characters'),
   
   handleValidationErrors
 ];
@@ -423,11 +462,135 @@ const validateCertificationsUpdate = (req, res, next) => {
   next();
 };
 
+// Validate specialties update
+const validateSpecialtiesUpdate = (req, res, next) => {
+  const specialties = req.body.specialties;
+
+  // If specialties is provided, it must be an array
+  if (!Array.isArray(specialties)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Specialties must be an array'
+    });
+  }
+
+  // Validate each specialty entry
+  for (let i = 0; i < specialties.length; i++) {
+    const specialty = specialties[i];
+    let specialtyText;
+    
+    // Handle both string and object formats
+    if (typeof specialty === 'string') {
+      specialtyText = specialty.trim();
+    } else if (typeof specialty === 'object' && specialty.specialty) {
+      specialtyText = specialty.specialty.trim();
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: `Specialty entry ${i + 1}: must be a string or object with specialty property`
+      });
+    }
+
+    // Validate specialty text
+    if (!specialtyText || specialtyText.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Specialty entry ${i + 1}: cannot be empty`
+      });
+    }
+
+    if (specialtyText.length > 255) {
+      return res.status(400).json({
+        success: false,
+        message: `Specialty entry ${i + 1}: must not exceed 255 characters`
+      });
+    }
+  }
+
+  // Check for duplicates
+  const specialtyTexts = specialties.map(s => 
+    typeof s === 'string' ? s.trim().toLowerCase() : s.specialty.trim().toLowerCase()
+  );
+  const uniqueSpecialties = [...new Set(specialtyTexts)];
+  if (specialtyTexts.length !== uniqueSpecialties.length) {
+    return res.status(400).json({
+      success: false,
+      message: 'Duplicate specialties are not allowed'
+    });
+  }
+
+  next();
+};
+
+// Validate social media update
+const validateSocialMediaUpdate = (req, res, next) => {
+  const socialMedia = req.body.social_media;
+
+  // If social_media is provided, it must be an array
+  if (!Array.isArray(socialMedia)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Social media must be an array'
+    });
+  }
+
+  // Validate each social media entry
+  for (let i = 0; i < socialMedia.length; i++) {
+    const social = socialMedia[i];
+    
+    if (!social.platform || !social.url) {
+      return res.status(400).json({
+        success: false,
+        message: `Social media entry ${i + 1}: platform and url are required`
+      });
+    }
+
+    // Validate platform
+    const validPlatforms = ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok'];
+    if (!validPlatforms.includes(social.platform)) {
+      return res.status(400).json({
+        success: false,
+        message: `Social media entry ${i + 1}: platform must be one of ${validPlatforms.join(', ')}`
+      });
+    }
+
+    // Validate URL format
+    try {
+      new URL(social.url);
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: `Social media entry ${i + 1}: invalid URL format`
+      });
+    }
+
+    // Check URL length
+    if (social.url.length > 255) {
+      return res.status(400).json({
+        success: false,
+        message: `Social media entry ${i + 1}: URL must not exceed 255 characters`
+      });
+    }
+  }
+
+  // Check for duplicate platforms
+  const platforms = socialMedia.map(s => s.platform);
+  const uniquePlatforms = [...new Set(platforms)];
+  if (platforms.length !== uniquePlatforms.length) {
+    return res.status(400).json({
+      success: false,
+      message: 'Duplicate platforms are not allowed'
+    });
+  }
+
+  next();
+};
+
 // Validate languages update
 const validateLanguagesUpdate = (req, res, next) => {
   const languages = req.body.languages;
 
-  // Check if languages is an array
+  // Check if y
   if (!Array.isArray(languages)) {
     return res.status(400).json({
       success: false,
@@ -491,5 +654,7 @@ module.exports = {
   validateBusinessHoursUpdate,
   validateCertificationsUpdate,
   validateLanguagesUpdate,
+  validateSocialMediaUpdate,
+  validateSpecialtiesUpdate,
   handleValidationErrors
 };

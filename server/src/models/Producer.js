@@ -27,10 +27,12 @@ class Producer extends User {
     this.producer_created_at = producerData.created_at;
     this.producer_updated_at = producerData.updated_at;
     
-    // Business hours, certifications, and languages will be loaded separately
+    // Business hours, certifications, languages, social media, and specialties will be loaded separately
     this.business_hours = null;
     this.certifications = null;
     this.languages = null;
+    this.social_media = null;
+    this.specialties = null;
   }
 
   // Helper method to get producer ID from user ID
@@ -125,7 +127,9 @@ class Producer extends User {
       category_ids = [],
       business_hours = [],
       certifications = [],
-      languages = []
+      languages = [],
+      social_media = [],
+      specialties = []
     } = userData;
 
     // Validate required producer fields
@@ -213,6 +217,26 @@ class Producer extends User {
         await transaction(languageQueries);
       }
 
+      // Add social media if provided
+      if (social_media && social_media.length > 0) {
+        const socialQueries = social_media.map(social => ({
+          sql: 'INSERT INTO producer_social_media (producer_id, platform, url) VALUES (?, ?, ?)',
+          params: [producerId, social.platform, social.url]
+        }));
+
+        await transaction(socialQueries);
+      }
+
+      // Add specialties if provided
+      if (specialties && specialties.length > 0) {
+        const specialtyQueries = specialties.map(specialty => ({
+          sql: 'INSERT INTO producer_specialties (producer_id, specialty) VALUES (?, ?)',
+          params: [producerId, typeof specialty === 'string' ? specialty : specialty.specialty]
+        }));
+
+        await transaction(specialtyQueries);
+      }
+
       // Return the complete producer profile
       return await Producer.findById(userId);
     } catch (error) {
@@ -266,12 +290,14 @@ class Producer extends User {
     console.log('Debug - Found producer with ID:', row.producer_id, 'for user:', userId);
     const producer = new Producer(row, row);
 
-    // Get producer categories, business hours, certifications, and languages
+    // Get producer categories, business hours, certifications, languages, and social media
     if (producer.producer_id) {
       producer.categories = await producer.getCategories();
       producer.business_hours = await producer.getBusinessHours();
       producer.certifications = await producer.getCertifications();
       producer.languages = await producer.getLanguages();
+      producer.social_media = await producer.getSocialMedia();
+      producer.specialties = await producer.getSpecialties();
     }
 
     return producer;
@@ -945,7 +971,9 @@ class Producer extends User {
         categories: producer.categories || [],
         business_hours: producer.business_hours || [],
         certifications: producer.certifications || [],
-        languages: producer.languages || []
+        languages: producer.languages || [],
+        social_media: producer.social_media || [],
+        specialties: producer.specialties || []
       },
       token
     };
@@ -961,8 +989,230 @@ class Producer extends User {
       categories: this.categories || [],
       business_hours: this.business_hours || [],
       certifications: this.certifications || [],
-      languages: this.languages || []
+      languages: this.languages || [],
+      social_media: this.social_media || [],
+      specialties: this.specialties || []
     };
+  }
+
+  // Get producer social media
+  async getSocialMedia() {
+    console.log('Debug - getSocialMedia - User ID (this.id):', this.id);
+    console.log('Debug - getSocialMedia - Producer ID (this.producer_id):', this.producer_id);
+
+    // Use producer_id if available, otherwise get it from user_id
+    let producerIdToUse = this.producer_id;
+    if (!producerIdToUse && this.id) {
+      console.log('Debug - getSocialMedia - Producer ID missing, getting from user ID...');
+      producerIdToUse = await Producer.getProducerIdFromUserId(this.id);
+      console.log('Debug - getSocialMedia - Found producer ID:', producerIdToUse);
+    }
+
+    if (!producerIdToUse) {
+      throw new Error('Producer ID not found');
+    }
+
+    const sql = `
+      SELECT id, platform, url, created_at, updated_at
+      FROM producer_social_media 
+      WHERE producer_id = ? 
+      ORDER BY created_at DESC
+    `;
+
+    console.log('Debug - getSocialMedia - About to query with producer_id:', producerIdToUse);
+    const result = await query(sql, [producerIdToUse]);
+    console.log('Debug - getSocialMedia - Query result:', result);
+    
+    return result;
+  }
+
+  // Add a single social media profile
+  async addSocialMedia(socialData) {
+    const { platform, url } = socialData;
+    
+    // Use producer_id if available, otherwise get it from user_id
+    let producerIdToUse = this.producer_id;
+    if (!producerIdToUse && this.id) {
+      producerIdToUse = await Producer.getProducerIdFromUserId(this.id);
+    }
+
+    if (!producerIdToUse) {
+      throw new Error('Producer ID not found');
+    }
+
+    const sql = `
+      INSERT INTO producer_social_media (producer_id, platform, url) 
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE 
+      url = VALUES(url), updated_at = CURRENT_TIMESTAMP
+    `;
+
+    const result = await query(sql, [producerIdToUse, platform, url]);
+    return result;
+  }
+
+  // Update social media (replace all existing)
+  async updateSocialMedia(socialMediaArray) {
+    try {
+      console.log('Debug - updateSocialMedia - User ID (this.id):', this.id);
+      console.log('Debug - updateSocialMedia - Producer ID (this.producer_id):', this.producer_id);
+      console.log('Debug - updateSocialMedia - Social Media Array:', socialMediaArray);
+
+      // Use producer_id if available, otherwise get it from user_id
+      let producerIdToUse = this.producer_id;
+      if (!producerIdToUse && this.id) {
+        console.log('Debug - updateSocialMedia - Producer ID missing, getting from user ID...');
+        producerIdToUse = await Producer.getProducerIdFromUserId(this.id);
+        console.log('Debug - updateSocialMedia - Found producer ID:', producerIdToUse);
+      }
+
+      // Verify producer exists
+      const checkProducer = await query('SELECT id, user_id FROM producers WHERE id = ?', [producerIdToUse]);
+      console.log('Debug - updateSocialMedia - Producer exists check:', checkProducer);
+      
+      if (checkProducer.length === 0) {
+        throw new Error(`Producer not found with ID ${producerIdToUse}`);
+      }
+
+      console.log('Debug - updateSocialMedia - Confirmed producer relationship: User ID', this.id, '→ Producer ID', producerIdToUse);
+
+      // Start transaction: delete existing social media
+      const queries = [
+        {
+          sql: 'DELETE FROM producer_social_media WHERE producer_id = ?',
+          params: [producerIdToUse]
+        }
+      ];
+
+      // Add new social media if provided
+      if (socialMediaArray && socialMediaArray.length > 0) {
+        const socialQueries = socialMediaArray.map(social => ({
+          sql: 'INSERT INTO producer_social_media (producer_id, platform, url) VALUES (?, ?, ?)',
+          params: [producerIdToUse, social.platform, social.url]
+        }));
+        queries.push(...socialQueries);
+        console.log('Debug - updateSocialMedia - Adding', socialQueries.length, 'social media entries');
+      }
+
+      console.log('Debug - updateSocialMedia - About to execute queries for producer_id:', producerIdToUse);
+      await transaction(queries);
+
+      // Refresh social media
+      this.social_media = await this.getSocialMedia();
+      console.log('Debug - updateSocialMedia - Social media after update:', this.social_media);
+    } catch (error) {
+      console.error('Debug - updateSocialMedia - Error:', error);
+      throw new Error(`Failed to update producer social media: ${error.message}`);
+    }
+  }
+
+  // Get producer specialties
+  async getSpecialties() {
+    console.log('Debug - getSpecialties - User ID (this.id):', this.id);
+    console.log('Debug - getSpecialties - Producer ID (this.producer_id):', this.producer_id);
+
+    // Use producer_id if available, otherwise get it from user_id
+    let producerIdToUse = this.producer_id;
+    if (!producerIdToUse && this.id) {
+      console.log('Debug - getSpecialties - Producer ID missing, getting from user ID...');
+      producerIdToUse = await Producer.getProducerIdFromUserId(this.id);
+      console.log('Debug - getSpecialties - Found producer ID:', producerIdToUse);
+    }
+
+    if (!producerIdToUse) {
+      throw new Error('Producer ID not found');
+    }
+
+    const sql = `
+      SELECT id, specialty, created_at
+      FROM producer_specialties 
+      WHERE producer_id = ? 
+      ORDER BY created_at DESC
+    `;
+
+    console.log('Debug - getSpecialties - About to query with producer_id:', producerIdToUse);
+    const result = await query(sql, [producerIdToUse]);
+    console.log('Debug - getSpecialties - Query result:', result);
+    
+    return result;
+  }
+
+  // Add a single specialty
+  async addSpecialty(specialtyData) {
+    const specialty = typeof specialtyData === 'string' ? specialtyData : specialtyData.specialty;
+    
+    // Use producer_id if available, otherwise get it from user_id
+    let producerIdToUse = this.producer_id;
+    if (!producerIdToUse && this.id) {
+      producerIdToUse = await Producer.getProducerIdFromUserId(this.id);
+    }
+
+    if (!producerIdToUse) {
+      throw new Error('Producer ID not found');
+    }
+
+    const sql = `
+      INSERT INTO producer_specialties (producer_id, specialty) 
+      VALUES (?, ?)
+    `;
+
+    const result = await query(sql, [producerIdToUse, specialty]);
+    return result;
+  }
+
+  // Update specialties (replace all existing)
+  async updateSpecialties(specialtiesArray) {
+    try {
+      console.log('Debug - updateSpecialties - User ID (this.id):', this.id);
+      console.log('Debug - updateSpecialties - Producer ID (this.producer_id):', this.producer_id);
+      console.log('Debug - updateSpecialties - Specialties Array:', specialtiesArray);
+
+      // Use producer_id if available, otherwise get it from user_id
+      let producerIdToUse = this.producer_id;
+      if (!producerIdToUse && this.id) {
+        console.log('Debug - updateSpecialties - Producer ID missing, getting from user ID...');
+        producerIdToUse = await Producer.getProducerIdFromUserId(this.id);
+        console.log('Debug - updateSpecialties - Found producer ID:', producerIdToUse);
+      }
+
+      // Verify producer exists
+      const checkProducer = await query('SELECT id, user_id FROM producers WHERE id = ?', [producerIdToUse]);
+      console.log('Debug - updateSpecialties - Producer exists check:', checkProducer);
+      
+      if (checkProducer.length === 0) {
+        throw new Error(`Producer not found with ID ${producerIdToUse}`);
+      }
+
+      console.log('Debug - updateSpecialties - Confirmed producer relationship: User ID', this.id, '→ Producer ID', producerIdToUse);
+
+      // Start transaction: delete existing specialties
+      const queries = [
+        {
+          sql: 'DELETE FROM producer_specialties WHERE producer_id = ?',
+          params: [producerIdToUse]
+        }
+      ];
+
+      // Add new specialties if provided
+      if (specialtiesArray && specialtiesArray.length > 0) {
+        const specialtyQueries = specialtiesArray.map(specialty => ({
+          sql: 'INSERT INTO producer_specialties (producer_id, specialty) VALUES (?, ?)',
+          params: [producerIdToUse, typeof specialty === 'string' ? specialty : specialty.specialty]
+        }));
+        queries.push(...specialtyQueries);
+        console.log('Debug - updateSpecialties - Adding', specialtyQueries.length, 'specialty entries');
+      }
+
+      console.log('Debug - updateSpecialties - About to execute queries for producer_id:', producerIdToUse);
+      await transaction(queries);
+
+      // Refresh specialties
+      this.specialties = await this.getSpecialties();
+      console.log('Debug - updateSpecialties - Specialties after update:', this.specialties);
+    } catch (error) {
+      console.error('Debug - updateSpecialties - Error:', error);
+      throw new Error(`Failed to update producer specialties: ${error.message}`);
+    }
   }
 }
 
