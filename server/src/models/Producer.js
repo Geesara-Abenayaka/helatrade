@@ -124,6 +124,8 @@ class Producer extends User {
       province, 
       website, 
       established_year,
+      avatar,
+      banner_image,
       category_ids = [],
       business_hours = [],
       certifications = [],
@@ -152,8 +154,8 @@ class Producer extends User {
       // Create producer profile
       const producerSql = `
         INSERT INTO producers 
-        (user_id, business_name, owner_name, bio, description, location, province, website, established_year) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (user_id, business_name, owner_name, bio, description, location, province, website, established_year, avatar, banner_image) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const producerResult = await query(producerSql, [
@@ -165,7 +167,9 @@ class Producer extends User {
         location || null, 
         province || null, 
         website || null, 
-        established_year || null
+        established_year || null,
+        avatar || null,
+        banner_image || null
       ]);
 
       const producerId = producerResult.insertId;

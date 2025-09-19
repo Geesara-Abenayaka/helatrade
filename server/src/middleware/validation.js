@@ -96,6 +96,18 @@ const validateProducerRegistration = [
     .isInt({ min: 1800, max: new Date().getFullYear() })
     .withMessage('Please provide a valid establishment year'),
 
+  body('avatar')
+    .optional()
+    .isURL()
+    .isLength({ max: 255 })
+    .withMessage('Avatar must be a valid URL and not exceed 255 characters'),
+
+  body('banner_image')
+    .optional()
+    .isURL()
+    .isLength({ max: 255 })
+    .withMessage('Banner image must be a valid URL and not exceed 255 characters'),
+
   body('category_ids')
     .optional()
     .isArray()
