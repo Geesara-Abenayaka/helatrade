@@ -8,8 +8,14 @@ require('dotenv').config();
 
 const app = express();
 
+// Import configuration
+const config = require('./src/config/config');
+const { testConnection } = require('./src/config/database');
+
 // Import routes
 const categoryRoutes = require('./src/routes/categoryRoutes');
+const authRoutes = require('./src/routes/authRoutes');
+const producerRoutes = require('./src/routes/producerRoutes');
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -18,16 +24,21 @@ app.use(morgan('combined')); // Logging
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: config.RATE_LIMIT_WINDOW,
+  max: config.RATE_LIMIT_MAX,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
 // CORS configuration
 app.use(cors({
   origin: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
+    config.FRONTEND_URL,
     'http://localhost:5174',
     'http://localhost:3000'
   ],
@@ -35,11 +46,13 @@ app.use(cors({
 }));
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: config.MAX_FILE_SIZE }));
+app.use(express.urlencoded({ extended: true, limit: config.MAX_FILE_SIZE }));
 
 // API Routes
 app.use('/api/categories', categoryRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/producers', producerRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -47,7 +60,23 @@ app.get('/health', (req, res) => {
     status: 'OK',
     message: 'HelaTrade Backend is running',
     timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0'
+    version: process.env.npm_package_version || '1.0.0',
+    environment: config.NODE_ENV
+  });
+});
+
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    message: 'HelaTrade API is running',
+    version: '1.2.0',
+    documentation: '/api/docs',
+    endpoints: {
+      auth: '/api/auth',
+      producers: '/api/producers',
+      categories: '/api/categories'
+    }
   });
 });
 
@@ -55,7 +84,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to HelaTrade API',
-    version: '1.0.0',
+    version: '1.2.0',
     documentation: '/api/docs'
   });
 });
@@ -64,30 +93,58 @@ app.get('/', (req, res) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Not Found',
-    message: 'The requested resource was not found'
+    message: 'API endpoint not found'
   });
 });
 
 // Global error handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
+app.use((error, req, res, next) => {
+  console.error('Global error handler:', error);
   
-  res.status(err.status || 500).json({
+  res.status(error.status || 500).json({
     success: false,
-    error: err.name || 'Internal Server Error',
-    message: err.message || 'An unexpected error occurred',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: error.message || 'Internal server error',
+    ...(config.NODE_ENV === 'development' && { stack: error.stack })
   });
 });
 
-const PORT = process.env.PORT || 3000;
+// Start server
+const startServer = async () => {
+  try {
+    // Test database connection
+    const dbConnected = await testConnection();
+    
+    if (!dbConnected) {
+      console.error('❌ Failed to connect to database. Server not started.');
+      process.exit(1);
+    }
 
-app.listen(PORT, () => {
-  console.log(`🚀 HelaTrade Backend server running on port ${PORT}`);
-  console.log(`📖 API Documentation: http://localhost:${PORT}/api/docs`);
-  console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+    const server = app.listen(config.PORT, () => {
+      console.log(`🚀 HelaTrade Backend Server running on port ${config.PORT}`);
+      console.log(`� Environment: ${config.NODE_ENV}`);
+      console.log(`🌐 Health check: http://localhost:${config.PORT}/health`);
+      console.log(`📚 API endpoints: http://localhost:${config.PORT}/api`);
+    });
+
+    // Graceful shutdown
+    const gracefulShutdown = (signal) => {
+      console.log(`\n⚠️  Received ${signal}. Graceful shutdown initiated...`);
+      
+      server.close(() => {
+        console.log('✅ HTTP server closed.');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 module.exports = app;
