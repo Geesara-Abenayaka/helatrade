@@ -3,39 +3,110 @@
 import React, { useState, useRef } from 'react'
 import { useCategories } from '../../hooks/useCategories'
 
-const EditProfile = ({ onClose, onSave }) => {
-  const [profileData, setProfileData] = useState({
-    ownerName: 'John Doe',
-    businessName: 'Highland Tea Estate',
-    email: 'john.doe@example.com',
-    phone: '+94 77 123 4567',
-    location: 'Kandy, Sri Lanka',
-    producerCategories: [1, 6], // Array of category numeric IDs (vegetables=1, coconut=6)
-    description: 'Premium Ceylon tea producer with over 20 years of experience in organic tea cultivation. We specialize in high-quality tea leaves from the hill country.',
-    website: 'https://highlandtea.lk',
-    establishedYear: '2003',
-    certifications: ['Organic Certified', 'Fair Trade', 'Rainforest Alliance'],
-    specialties: ['Black Tea', 'Green Tea', 'White Tea', 'Herbal Tea'],
-    languages: ['English', 'Sinhala', 'Tamil'],
-    businessHours: {
-      monday: { open: '08:00', close: '17:00', closed: false },
-      tuesday: { open: '08:00', close: '17:00', closed: false },
-      wednesday: { open: '08:00', close: '17:00', closed: false },
-      thursday: { open: '08:00', close: '17:00', closed: false },
-      friday: { open: '08:00', close: '17:00', closed: false },
-      saturday: { open: '08:00', close: '14:00', closed: false },
-      sunday: { open: '', close: '', closed: true }
-    },
-    socialMedia: {
-      facebook: 'https://facebook.com/highlandtea',
-      instagram: 'https://instagram.com/highland_tea_estate',
-      twitter: '',
-      linkedin: 'https://linkedin.com/company/highland-tea'
+const EditProfile = ({ onClose, onSave, producer }) => {
+  // Transform producer data to match component's expected format
+  const initializeProfileData = () => {
+    if (!producer) {
+      return {
+        ownerName: '',
+        businessName: '',
+        email: '',
+        phone: '',
+        location: '',
+        province: '',
+        producerCategories: [],
+        description: '',
+        website: '',
+        establishedYear: '',
+        certifications: [],
+        specialties: [],
+        languages: [],
+        businessHours: {
+          monday: { open: '08:00', close: '17:00', closed: false },
+          tuesday: { open: '08:00', close: '17:00', closed: false },
+          wednesday: { open: '08:00', close: '17:00', closed: false },
+          thursday: { open: '08:00', close: '17:00', closed: false },
+          friday: { open: '08:00', close: '17:00', closed: false },
+          saturday: { open: '08:00', close: '14:00', closed: false },
+          sunday: { open: '', close: '', closed: true }
+        },
+        socialMedia: {
+          facebook: '',
+          instagram: '',
+          twitter: '',
+          linkedin: ''
+        }
+      }
     }
-  })
 
-  const [profileImage, setProfileImage] = useState('/api/placeholder/120/120')
-  const [bannerImage, setBannerImage] = useState('/api/placeholder/800/300')
+    // Transform business hours from API format to component format
+    const transformBusinessHours = () => {
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+      const hours = {}
+      
+      days.forEach(day => {
+        const dayData = producer.business_hours?.find(bh => bh.day_of_week === day)
+        if (dayData) {
+          hours[day] = {
+            open: dayData.open_time ? dayData.open_time.substring(0, 5) : '08:00',
+            close: dayData.close_time ? dayData.close_time.substring(0, 5) : '17:00',
+            closed: !dayData.is_open
+          }
+        } else {
+          hours[day] = { open: '', close: '', closed: true }
+        }
+      })
+      
+      return hours
+    }
+
+    // Transform social media from API format to component format
+    const transformSocialMedia = () => {
+      const social = {
+        facebook: '',
+        instagram: '',
+        twitter: '',
+        linkedin: ''
+      }
+      
+      if (producer.social_media && Array.isArray(producer.social_media)) {
+        producer.social_media.forEach(item => {
+          if (social.hasOwnProperty(item.platform)) {
+            social[item.platform] = item.url
+          }
+        })
+      }
+      
+      return social
+    }
+
+    return {
+      ownerName: producer.owner_name || '',
+      businessName: producer.business_name || '',
+      email: producer.email || '',
+      phone: producer.phone || '',
+      location: producer.location || '',
+      province: producer.province || '',
+      producerCategories: producer.categories?.map(cat => cat.id) || [],
+      description: producer.bio || '',
+      website: producer.website || '',
+      establishedYear: producer.established_year || '',
+      certifications: producer.certifications?.map(cert => 
+        typeof cert === 'string' ? cert : cert.certification_name
+      ) || [],
+      specialties: producer.specialties || [],
+      languages: producer.languages?.map(lang => 
+        typeof lang === 'string' ? lang : lang.language
+      ) || [],
+      businessHours: transformBusinessHours(),
+      socialMedia: transformSocialMedia()
+    }
+  }
+
+  const [profileData, setProfileData] = useState(initializeProfileData)
+
+  const [profileImage, setProfileImage] = useState(producer?.avatar || '/api/placeholder/120/120')
+  const [bannerImage, setBannerImage] = useState(producer?.banner_image || '/api/placeholder/800/300')
   const [isUploading, setIsUploading] = useState(false)
   const [activeTab, setActiveTab] = useState('basic')
   const [newCertification, setNewCertification] = useState('')

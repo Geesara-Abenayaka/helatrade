@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const ConnectionsHub = () => {
+const ConnectionsHub = ({ producer }) => {
   const [activeTab, setActiveTab] = useState('connections')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterBy, setFilterBy] = useState('all')

@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { useCategories } from '../../hooks/useCategories'
 import ProductCard from '../ui/ProductCard'
 
-const ProductsSection = () => {
+
+const ProductsSection = ({ producer }) => {
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [showEditProduct, setShowEditProduct] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)

@@ -3,7 +3,9 @@ import { useCategories } from '../../hooks/useCategories'
 import PostCard from '../ui/PostCard'
 import PostFormModal from '../ui/PostFormModal'
 
-const ContentManagement = () => {
+import React, { useState } from 'react'
+
+const ContentManagement = ({ producer }) => {
   const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
   const [filterBy, setFilterBy] = useState('all')
   const [sortBy, setSortBy] = useState('newest')

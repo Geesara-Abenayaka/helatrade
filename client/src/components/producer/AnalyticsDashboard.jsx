@@ -1,16 +1,16 @@
 import React, { useState } from 'react'
 
-const AnalyticsDashboard = () => {
+const AnalyticsDashboard = ({ producer }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('30days')
   const [selectedMetric, setSelectedMetric] = useState('views')
 
-  // Mock analytics data
+  // Use real analytics data from producer, with fallbacks
   const overviewStats = {
-    totalViews: 45230,
-    totalLikes: 3420,
-    totalComments: 890,
-    totalConnections: 142,
-    viewsChange: 12.5,
+    totalViews: producer?.total_views || 0,
+    totalLikes: producer?.total_likes || 0,
+    totalComments: producer?.total_comments || 0,
+    totalConnections: producer?.total_connections || 0,
+    viewsChange: 12.5, // These would come from API comparing periods
     likesChange: 8.3,
     commentsChange: -2.1,
     connectionsChange: 15.7

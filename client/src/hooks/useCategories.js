@@ -12,10 +12,14 @@ export const useCategories = (options = {}) => {
       setLoading(true);
       setError(null);
       const response = await categoriesAPI.getAll(options);
-      setCategories(response.data || []);
+      // Ensure categories is always an array
+      const categoriesData = response.data || response || [];
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (err) {
       setError(err.message);
       console.error('Failed to fetch categories:', err);
+      // Set empty array on error to prevent map errors
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -100,7 +104,7 @@ export const useCategoriesWithStyling = () => {
   };
 
   // Enhanced categories with styling
-  const styledCategories = categories.map(category => ({
+  const styledCategories = Array.isArray(categories) ? categories.map(category => ({
     ...category,
     ...(styleMap[category.name] || {}),
     // Mock counts for now - these should come from your stats API later
@@ -108,7 +112,7 @@ export const useCategoriesWithStyling = () => {
     productCount: `${(Math.random() * 2 + 0.5).toFixed(1)}k`,
     trending: Math.random() > 0.6,
     description: getDescription(category.name)
-  }));
+  })) : [];
 
   return {
     categories: styledCategories,

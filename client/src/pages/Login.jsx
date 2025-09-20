@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { producersAPI, storesAPI } from '../services/api'
+import services from '../services/producerServices'
+
+const { producerServices } = services;
 
 const Login = () => {
   const navigate = useNavigate()
-  const [selectedRole, setSelectedRole] = useState('producer')
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -35,39 +36,63 @@ const Login = () => {
         password: formData.password
       }
 
-      let response
-      if (selectedRole === 'producer') {
-        response = await producersAPI.login(credentials)
-      } else if (selectedRole === 'store') {
-        response = await storesAPI.login(credentials)
-      } else {
-        // Admin login - would need to implement admin API
-        throw new Error('Admin login not implemented yet')
-      }
+      // Try producer login first (you can add other user types later)
+      const response = await producerServices.login(credentials.email, credentials.password)
 
-      if (response.success && response.token) {
-        // Store authentication data
-        localStorage.setItem('authToken', response.token)
-        localStorage.setItem('userType', selectedRole)
-        localStorage.setItem('userData', JSON.stringify(response.data))
+      if (response.success && response.data) {
+        // Store authentication data in localStorage
+        localStorage.setItem('authToken', response.data.token)
+        localStorage.setItem('userType', response.data.user.user_type)
+        localStorage.setItem('userId', response.data.user.id.toString())
+        localStorage.setItem('userData', JSON.stringify(response.data.user))
 
         // Store remember me preference
         if (formData.rememberMe) {
           localStorage.setItem('rememberLogin', 'true')
+          localStorage.setItem('userEmail', formData.email)
+        } else {
+          localStorage.removeItem('rememberLogin')
+          localStorage.removeItem('userEmail')
         }
 
-        // Navigate based on role
-        if (selectedRole === 'producer') {
-          navigate('/producer-dashboard')
-        } else if (selectedRole === 'store') {
-          navigate('/store-dashboard')
+        // Navigate based on user type from response
+        if (response.data.user.user_type === 'producer') {
+          navigate('/producer-dashboard', { 
+            state: { 
+              message: 'Login successful! Welcome back.',
+              producer: response.data.user
+            }
+          })
+        } else if (response.data.user.user_type === 'store') {
+          navigate('/store-dashboard', {
+            state: {
+              message: 'Login successful! Welcome back.',
+              store: response.data.user
+            }
+          })
+        } else if (response.data.user.user_type === 'admin') {
+          navigate('/admin-dashboard', {
+            state: {
+              message: 'Login successful! Welcome back.',
+              admin: response.data.user
+            }
+          })
+        } else {
+          // Fallback navigation
+          navigate('/dashboard')
         }
       } else {
-        setError('Login failed. Please try again.')
+        setError(response.message || 'Login failed. Please try again.')
       }
     } catch (error) {
       console.error('Login error:', error)
-      setError(error.data?.message || error.message || 'Login failed. Please check your credentials.')
+      if (error.success === false && error.message) {
+        setError(error.message)
+      } else if (error.message) {
+        setError(error.message)
+      } else {
+        setError('Login failed. Please check your credentials and try again.')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -115,67 +140,11 @@ const Login = () => {
               </div>
             )}
 
-            {/* Role Selector */}
-            <div>
-              <label className="text-sm font-medium text-primary-700 mb-3 block">
-                I am a:
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'producer', label: 'Producer', icon: '🌱' },
-                  { id: 'store', label: 'Store', icon: '🏪' },
-                  { id: 'admin', label: 'Admin', icon: '⚙️' }
-                ].map(role => (
-                  <button
-                    key={role.id}
-                    type="button"
-                    onClick={() => setSelectedRole(role.id)}
-                    className={`p-3 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                      selectedRole === role.id
-                        ? 'bg-orange-100 border-orange-300 text-orange-700'
-                        : 'bg-white border-primary-200 text-primary-600 hover:border-primary-300 hover:bg-primary-50'
-                    }`}
-                  >
-                    <div className="text-lg mb-1">{role.icon}</div>
-                    {role.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Email Input */}
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label htmlFor="email" className="text-sm font-medium text-primary-700">
-                  Email address
-                </label>
-                {selectedRole === 'producer' && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ 
-                      ...prev, 
-                      email: 'info@highlandtea.lk', 
-                      password: 'SecurePassword123' 
-                    }))}
-                    className="text-xs text-orange-600 hover:text-orange-700"
-                  >
-                    Use producer test credentials
-                  </button>
-                )}
-                {selectedRole === 'store' && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ 
-                      ...prev, 
-                      email: 'store@example.com', 
-                      password: 'StorePassword123' 
-                    }))}
-                    className="text-xs text-blue-600 hover:text-blue-700"
-                  >
-                    Use store test credentials
-                  </button>
-                )}
-              </div>
+              <label htmlFor="email" className="text-sm font-medium text-primary-700 block mb-2">
+                Email address
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

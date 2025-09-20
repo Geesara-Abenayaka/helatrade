@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 
-const ProducerHomeFeed = () => {
+const ProducerHomeFeed = ({ producer }) => {
   const [postText, setPostText] = useState('')
 
-  // Mock data
+  // Use real analytics data from producer profile
   const analytics = {
-    views: 12500,
-    likes: 4200,
-    connections: 850
+    views: producer?.total_views || 0,
+    likes: producer?.total_likes || 0,
+    connections: producer?.total_connections || 0
   }
 
   const activities = [
@@ -49,7 +49,13 @@ const ProducerHomeFeed = () => {
     }
   ]
 
-  const trendingInCategory = [
+  const trendingInCategory = producer?.categories?.length > 0 ? producer.categories.map((category, index) => ({
+    id: category.id,
+    title: `${category.name} Market Trends`,
+    engagement: `${Math.floor(Math.random() * 5000) + 1000} interactions`,
+    trend: `+${Math.floor(Math.random() * 30) + 5}%`,
+    category: category.name
+  })) : [
     {
       id: 1,
       title: 'Organic Farming Practices',
@@ -124,8 +130,18 @@ const ProducerHomeFeed = () => {
       {/* Create Post Section */}
       <div className="bg-white rounded-xl shadow-sm border border-primary-200 p-6">
         <div className="flex items-start space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-lg font-medium">JD</span>
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {producer?.avatar ? (
+              <img 
+                src={producer.avatar} 
+                alt={producer.business_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-white text-lg font-medium">
+                {producer?.business_name?.charAt(0)?.toUpperCase() || 'P'}
+              </span>
+            )}
           </div>
           <div className="flex-1">
             <div className="bg-primary-50 rounded-full px-4 py-3 cursor-pointer hover:bg-primary-100 transition-colors">
